@@ -1,0 +1,34 @@
+name: TelegramAnnouncerBot
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"  # запускається кожні 6 годин
+  workflow_dispatch:         # дозволяє ручний запуск з GitHub UI
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bot
+        # 5 год 55 хв = 21300 сек, потім зупиняємось gracefully
+        run: timeout 21300 python bot.py || true
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
+          ALLOWED_CHAT_IDS: ${{ secrets.ALLOWED_CHAT_IDS }}
