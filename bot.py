@@ -113,6 +113,9 @@ async def chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Повертає інформацію специфічну для групи."""
     chat_key = get_chat_key_by_id(update.effective_chat.id)
+    if chat_key is None:
+        await update.message.reply_text("ℹ️ Ця група не налаштована.")
+        return
     text = CHATS[chat_key].get("info", "ℹ️ Немає інформації для цієї групи.")
     await update.message.reply_text(text)
 
