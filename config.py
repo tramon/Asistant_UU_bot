@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
-GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
+GOOGLE_SHEET_ID: str | None = os.getenv("GOOGLE_SHEET_ID")
+UU_SCHEDULE_SHEET_ID: str | None = os.getenv("UU_SCHEDULE_SHEET_ID")
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -40,13 +41,30 @@ def load_google_credentials() -> dict:
     )
 
 
+def get_google_client():
+    """Створює авторизований gspread клієнт."""
+    creds_data = load_google_credentials()
+    creds = Credentials.from_service_account_info(creds_data, scopes=SCOPES)
+    return gspread.authorize(creds)
+
+
+def get_schedule_url(chat_key: str) -> str | None:
+    """Повертає посилання на аркуш розкладу для групи за її ключем."""
+    try:
+        client = get_google_client()
+        sheet = client.open_by_key(UU_SCHEDULE_SHEET_ID)
+        worksheet = sheet.worksheet(chat_key)
+        gid = worksheet.id
+        return f"https://docs.google.com/spreadsheets/d/{UU_SCHEDULE_SHEET_ID}/edit#gid={gid}"
+    except Exception as e:
+        logger.error(f"Помилка отримання розкладу для '{chat_key}': {e}")
+        return None
+
+
 def load_chats_from_sheet() -> dict:
     """Читає чати з Google Sheet і повертає dict."""
     try:
-        creds_data = load_google_credentials()
-        creds = Credentials.from_service_account_info(creds_data, scopes=SCOPES)
-        client = gspread.authorize(creds)
-
+        client = get_google_client()
         sheet = client.open_by_key(GOOGLE_SHEET_ID).sheet1
         records = sheet.get_all_records()
 

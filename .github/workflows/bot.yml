@@ -43,3 +43,4 @@ jobs:
           ALLOWED_CHAT_IDS: ${{ secrets.ALLOWED_CHAT_IDS }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          UU_SCHEDULE_SHEET_ID: ${{ secrets.UU_SCHEDULE_SHEET_ID }}

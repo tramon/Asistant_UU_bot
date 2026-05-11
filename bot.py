@@ -9,7 +9,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from announcements import ANNOUNCEMENTS
 from utils.utils import get_study_week
-from config import BOT_TOKEN, CHATS, ALLOWED_CHAT_IDS
+from config import BOT_TOKEN, CHATS, ALLOWED_CHAT_IDS, get_schedule_url
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -73,6 +73,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
 
 def allowed_chats_only(func):
     """Ігнорує запити з чатів не зі списку, або без повідомлення."""
+
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not update.message:
             return
@@ -81,6 +82,7 @@ def allowed_chats_only(func):
             logger.warning(f"Заблоковано запит з чату {chat_id}")
             return
         return await func(update, context)
+
     return wrapper
 
 
@@ -100,6 +102,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/chatid — показати ID цього чату\n"
         "/info — інформація про цю групу\n"
         "/week — який зараз тиждень навчання\n"
+        "/schedule — розклад групи\n"
     )
     await update.message.reply_text(text)
 
@@ -121,7 +124,10 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("ℹ️ Ця група не налаштована.")
         return
     text = CHATS[chat_key].get("info", "ℹ️ Немає інформації для цієї групи.")
-    keyboard = [[InlineKeyboardButton("📅 Який зараз тиждень?", callback_data="week")]]
+    keyboard = [
+        [InlineKeyboardButton("📅 Який зараз тиждень?", callback_data="week")],
+        [InlineKeyboardButton("📋 Розклад", callback_data="schedule")],
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(text, reply_markup=reply_markup)
 
@@ -139,6 +145,37 @@ async def week_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=f"{info_text}\n\n📅 Зараз {week} тиждень навчання.",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
+
+async def schedule_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробляє натискання кнопки 'Розклад'."""
+    query = update.callback_query
+    await query.answer()
+    chat_key = get_chat_key_by_id(query.message.chat.id)
+    if chat_key is None:
+        await query.answer("ℹ️ Ця група не налаштована.", show_alert=True)
+        return
+    url = get_schedule_url(chat_key)
+    if url is None:
+        await query.answer("❌ Розклад не знайдено.", show_alert=True)
+        return
+    text = f"📅 Розклад:\n{chat_key}\n{url}"
+    await query.message.reply_text(text, disable_web_page_preview=True)
+
+
+@allowed_chats_only
+async def schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Повертає посилання на розклад групи."""
+    chat_key = get_chat_key_by_id(update.effective_chat.id)
+    if chat_key is None:
+        await update.message.reply_text("ℹ️ Ця група не налаштована.")
+        return
+    url = get_schedule_url(chat_key)
+    if url is None:
+        await update.message.reply_text("❌ Розклад для цієї групи не знайдено.")
+        return
+    text = f"📅 Розклад:\n{chat_key}\n{url}"
+    await update.message.reply_text(text, disable_web_page_preview=True)
 
 
 @allowed_chats_only
@@ -163,7 +200,9 @@ async def main():
     app.add_handler(CommandHandler("chatid", chatid))
     app.add_handler(CommandHandler("info", info))
     app.add_handler(CommandHandler("week", week))
+    app.add_handler(CommandHandler("schedule", schedule))
     app.add_handler(CallbackQueryHandler(week_callback, pattern="^week$"))
+    app.add_handler(CallbackQueryHandler(schedule_callback, pattern="^schedule$"))
     app.add_handler(MessageHandler(filters.COMMAND, unknown))
 
     scheduler = setup_scheduler(app.bot)
