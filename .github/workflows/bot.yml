@@ -7,6 +7,10 @@ on:
     - cron: "0 */6 * * *"  # запускається кожні 6 годин
   workflow_dispatch:         # дозволяє ручний запуск з GitHub UI
 
+concurrency:
+  group: bot-runner
+  cancel-in-progress: true
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

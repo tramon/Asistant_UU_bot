@@ -129,10 +129,14 @@ async def week_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обробляє натискання кнопки 'Який зараз тиждень?'"""
     query = update.callback_query
     await query.answer()
+    # Беремо оригінальний текст з CHATS, а не з поточного повідомлення
+    chat_key = get_chat_key_by_id(query.message.chat.id)
+    info_text = CHATS[chat_key].get("info", "") if chat_key else ""
     week = get_study_week()
+    keyboard = [[InlineKeyboardButton("📅 Який зараз тиждень?", callback_data="week")]]
     await query.edit_message_text(
-        text=f"{query.message.text}\n\n📅 Зараз {week} тиждень навчання.",
-        reply_markup=query.message.reply_markup
+        text=f"{info_text}\n\n📅 Зараз {week} тиждень навчання.",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
