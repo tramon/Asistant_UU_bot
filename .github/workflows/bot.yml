@@ -1,6 +1,8 @@
 name: TelegramAnnouncerBot
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: "0 */6 * * *"  # запускається кожні 6 годин
   workflow_dispatch:         # дозволяє ручний запуск з GitHub UI
@@ -36,4 +38,4 @@ jobs:
           BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
           ALLOWED_CHAT_IDS: ${{ secrets.ALLOWED_CHAT_IDS }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
