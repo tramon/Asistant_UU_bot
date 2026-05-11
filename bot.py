@@ -99,6 +99,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/help — список команд\n"
         "/chatid — показати ID цього чату\n"
         "/info — інформація про цю групу\n"
+        "/week — який зараз тиждень навчання\n"
     )
     await update.message.reply_text(text)
 
@@ -141,6 +142,13 @@ async def week_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @allowed_chats_only
+async def week(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Повертає інформацію про поточний тиждень навчання."""
+    current_week = get_study_week()
+    await update.message.reply_text(f"📅 Зараз {current_week} тиждень навчання.")
+
+
+@allowed_chats_only
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Невідома команда. Спробуй /help")
 
@@ -154,6 +162,7 @@ async def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("chatid", chatid))
     app.add_handler(CommandHandler("info", info))
+    app.add_handler(CommandHandler("week", week))
     app.add_handler(CallbackQueryHandler(week_callback, pattern="^week$"))
     app.add_handler(MessageHandler(filters.COMMAND, unknown))
 
