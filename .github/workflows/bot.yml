@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Run tests
+        run: pytest tests/ -v
+
       - name: Run bot
         # 5 год 55 хв = 21300 сек, потім зупиняємось gracefully
         run: timeout 21300 python bot.py || true
@@ -33,4 +36,4 @@ jobs:
           BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
           ALLOWED_CHAT_IDS: ${{ secrets.ALLOWED_CHAT_IDS }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }

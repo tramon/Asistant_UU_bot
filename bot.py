@@ -4,10 +4,11 @@ import logging
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from telegram import Bot, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
 from announcements import ANNOUNCEMENTS
+from utils.utils import get_study_week
 from config import BOT_TOKEN, CHATS, ALLOWED_CHAT_IDS
 
 logging.basicConfig(
@@ -53,9 +54,11 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         trigger = CronTrigger.from_crontab(ann["cron"], timezone=KYIV_TZ)
 
         async def send_announcement(t=text, ids=chat_ids):
+            # Якщо text — функція (lambda), викликаємо її в момент надсилання
+            message = t() if callable(t) else t
             for chat_id in ids:
                 try:
-                    await bot.send_message(chat_id=chat_id, text=t)
+                    await bot.send_message(chat_id=chat_id, text=message)
                     logger.info(f"Оголошення надіслано в {chat_id}")
                 except Exception as e:
                     logger.error(f"Помилка надсилання в {chat_id}: {e}")
@@ -117,7 +120,20 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("ℹ️ Ця група не налаштована.")
         return
     text = CHATS[chat_key].get("info", "ℹ️ Немає інформації для цієї групи.")
-    await update.message.reply_text(text)
+    keyboard = [[InlineKeyboardButton("📅 Який зараз тиждень?", callback_data="week")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(text, reply_markup=reply_markup)
+
+
+async def week_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обробляє натискання кнопки 'Який зараз тиждень?'"""
+    query = update.callback_query
+    await query.answer()
+    week = get_study_week()
+    await query.edit_message_text(
+        text=f"{query.message.text}\n\n📅 Зараз {week} тиждень навчання.",
+        reply_markup=query.message.reply_markup
+    )
 
 
 @allowed_chats_only
@@ -134,6 +150,7 @@ async def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("chatid", chatid))
     app.add_handler(CommandHandler("info", info))
+    app.add_handler(CallbackQueryHandler(week_callback, pattern="^week$"))
     app.add_handler(MessageHandler(filters.COMMAND, unknown))
 
     scheduler = setup_scheduler(app.bot)
