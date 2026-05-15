@@ -14,7 +14,10 @@ KYIV_TZ = pytz.timezone("Europe/Kyiv")
 
 
 def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
-    scheduler = AsyncIOScheduler(timezone=KYIV_TZ)
+    # misfire_grace_time=600 — якщо задача пропущена менш ніж 10 хв тому
+    # (наприклад під час перезапуску між сесіями GitHub Actions) — відправити одразу.
+    # Якщо більше 10 хв — пропустити, щоб не надсилати застарілі повідомлення.
+    scheduler = AsyncIOScheduler(timezone=KYIV_TZ, misfire_grace_time=600)
 
     for ann in ANNOUNCEMENTS:
         text = ann["text"]
