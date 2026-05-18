@@ -44,3 +44,4 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           UU_SCHEDULE_SHEET_ID: ${{ secrets.UU_SCHEDULE_SHEET_ID }}
+          OWNER_USER_TELEGRAM_IDS : ${{ secrets.OWNER_USER_TELEGRAM_IDS  }}
