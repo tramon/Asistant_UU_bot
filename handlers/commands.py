@@ -3,8 +3,8 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from config import CHATS, get_schedule_url
-from utils.decorators import allowed_chats_only
+from config import CHATS, GOOGLE_SHEET_ID, UU_SCHEDULE_SHEET_ID, get_schedule_url
+from utils.decorators import allowed_chats_only, allowed_users_only, private_chat_only
 from utils.chat_resolver import get_chat_key_by_id
 from utils.utils import get_study_week
 
@@ -73,6 +73,20 @@ async def schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Розклад для цієї групи не знайдено.")
         return
     text = f"📅 Розклад:\n{chat_key}\n{url}"
+    await update.message.reply_text(text, disable_web_page_preview=True)
+
+
+@private_chat_only
+@allowed_users_only
+async def doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Повертає посилання на Google Sheets (тільки для дозволених користувачів)."""
+    chats_url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}"
+    schedule_url = f"https://docs.google.com/spreadsheets/d/{UU_SCHEDULE_SHEET_ID}"
+    text = (
+        "📄 Документи:\n\n"
+        f"Конфіг чатів:\n{chats_url}\n\n"
+        f"Розклад:\n{schedule_url}"
+    )
     await update.message.reply_text(text, disable_web_page_preview=True)
 
 

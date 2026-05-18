@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from config import BOT_TOKEN
 from handlers.callbacks import week_callback, schedule_callback
-from handlers.commands import start, help_command, chatid, info, week, schedule, unknown
+from handlers.commands import start, help_command, chatid, info, week, schedule, doc, unknown
 from scheduler import setup_scheduler
 
 logging.basicConfig(
@@ -24,6 +24,7 @@ async def main():
     app.add_handler(CommandHandler("info", info))
     app.add_handler(CommandHandler("week", week))
     app.add_handler(CommandHandler("schedule", schedule))
+    app.add_handler(CommandHandler("doc", doc))
     app.add_handler(CallbackQueryHandler(week_callback, pattern="^week$"))
     app.add_handler(CallbackQueryHandler(schedule_callback, pattern="^schedule$"))
     app.add_handler(MessageHandler(filters.COMMAND, unknown))
