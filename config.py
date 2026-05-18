@@ -16,11 +16,14 @@ GOOGLE_SHEET_ID: str | None = os.getenv("GOOGLE_SHEET_ID")
 UU_SCHEDULE_SHEET_ID: str | None = os.getenv("UU_SCHEDULE_SHEET_ID")
 
 # Список Telegram user_id, яким дозволено /doc. Формат у .env: OWNER_USER_TELEGRAM_IDS=123456,789012
+_raw_owner_ids = os.getenv("OWNER_USER_TELEGRAM_IDS", "")
+logger.info(f"[config] OWNER_USER_TELEGRAM_IDS raw value: '{_raw_owner_ids}'")
 OWNER_USER_TELEGRAM_IDS: list[int] = [
     int(uid.strip())
-    for uid in os.getenv("OWNER_USER_TELEGRAM_IDS", "").split(",")
+    for uid in _raw_owner_ids.split(",")
     if uid.strip().isdigit()
 ]
+logger.info(f"[config] OWNER_USER_TELEGRAM_IDS parsed: {OWNER_USER_TELEGRAM_IDS}")
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
