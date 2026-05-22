@@ -8,10 +8,25 @@ from handlers.callbacks import week_callback, schedule_callback
 from handlers.commands import start, help_command, chatid, info, week, schedule, doc, unknown
 from scheduler import setup_scheduler
 
+class _FilterGetUpdates(logging.Filter):
+    def __init__(self):
+        super().__init__()
+        self._first_seen = False
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if "getUpdates" not in record.getMessage():
+            return True
+        if not self._first_seen:
+            self._first_seen = True
+            return True  # first getUpdates — we do send
+        return False     # others we filter for the sake of removing redundant logs.
+
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
+logging.getLogger("httpx").addFilter(_FilterGetUpdates()) # here we filters 2-nd and all following getUpdate logs.
 logger = logging.getLogger(__name__)
 
 
