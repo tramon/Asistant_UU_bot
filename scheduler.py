@@ -6,6 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 from telegram import Bot
 
 from announcements import ANNOUNCEMENTS
+from config import CHATS
 from utils.chat_resolver import get_chat_ids
 
 logger = logging.getLogger(__name__)
@@ -24,15 +25,19 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         chat_ids = get_chat_ids(ann["chats"])
         trigger = CronTrigger.from_crontab(ann["cron"], timezone=KYIV_TZ)
 
-        async def send_announcement(t=text, ids=chat_ids):
+        async def send_announcement(t=text, ids=chat_ids, keys=ann["chats"]):
             # Якщо text — функція (lambda), викликаємо її в момент надсилання
             message = t() if callable(t) else t
-            for chat_id in ids:
+            for chat_id, chat_key in zip(ids, keys if keys != ["all"] else list(CHATS.keys())):
                 try:
                     await bot.send_message(chat_id=chat_id, text=message)
-                    logger.info(f"Оголошення надіслано в {chat_id}")
+                    logger.info(
+                        f"Оголошення надіслано | чат: '{chat_key}' (id={chat_id}) | текст: '{message}'"
+                    )
                 except Exception as e:
-                    logger.error(f"Помилка надсилання в {chat_id}: {e}")
+                    logger.error(
+                        f"Помилка надсилання | чат: '{chat_key}' (id={chat_id}) | {e}"
+                    )
 
         scheduler.add_job(send_announcement, trigger=trigger)
         logger.info(f"Заплановано: [{ann['cron']}] → {ann['chats']}")

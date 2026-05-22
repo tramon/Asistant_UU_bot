@@ -13,7 +13,7 @@
 # chats: список ключів з CHATS у config.py, або ["all"] для всіх груп
 # =============================================================================
 
-from utils.utils import get_study_week
+from utils.utils import get_study_week, get_day_of_week
 
 
 ANNOUNCEMENTS = [
@@ -24,7 +24,7 @@ ANNOUNCEMENTS = [
         "chats": ["all"],
     },
     {
-        "text": "🌅 Доброго ранку! Гарного та продуктивного дня!",
+        "text": lambda: f"🌅 {get_day_of_week()} Доброго ранку! Гарного та продуктивного дня!",
         "cron": "25 8 * * 1-4",       # 08:25 вт-пт
         "chats": ["main"],
     },
