@@ -19,7 +19,7 @@ from utils.utils import get_study_week, get_day_of_week
 ANNOUNCEMENTS = [
     {
         # lambda — щоб текст обраховувався в момент надсилання, а не при старті
-        "text": lambda: f"🔔 Доброго ранку! Починається {get_study_week()} тиждень навчання за розкладом. Вдалого тижня!",
+        "text": lambda: f"🔔 {get_day_of_week()} Доброго ранку! Навчаємося за розкладом {get_study_week()}-го тижня",
         "cron": "25 8 * * 0",        # 08:25 щопонеділка
         "chats": ["all"],
     },
