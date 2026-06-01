@@ -1,7 +1,7 @@
 import datetime
 
-week_1 = "1-й"
-week_2 = "2-й"
+week_1 = "1"
+week_2 = "2"
 
 DAY_NAMES = {
     0: "Пн.",
