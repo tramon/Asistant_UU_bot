@@ -14,6 +14,43 @@ logger = logging.getLogger(__name__)
 KYIV_TZ = pytz.timezone("Europe/Kyiv")
 
 
+async def send_announcement(bot: Bot, text, chat_ids: list, chat_keys: list, user_keys: list) -> None:
+    """
+    Надсилає одне оголошення в групові чати та/або особисті повідомлення.
+    Винесено окремо для тестування.
+    """
+    message = text() if callable(text) else text
+
+    # --- Надсилання в групові чати ---
+    keys_iter = chat_keys if chat_keys != ["all"] else list(CHATS.keys())
+    for chat_id, chat_key in zip(chat_ids, keys_iter):
+        try:
+            await bot.send_message(chat_id=chat_id, text=message)
+            logger.info(f"Оголошення надіслано | чат: '{chat_key}' (id={chat_id}) | текст: '{message}'")
+        except Exception as e:
+            logger.error(f"Помилка надсилання | чат: '{chat_key}' (id={chat_id}) | {e}")
+
+    # --- Надсилання особистих повідомлень ---
+    if user_keys:
+        active_users = get_active_users()
+        # ["all"] — всі активні; інакше — фільтр по username (з @ або без)
+        if user_keys != ["all"]:
+            normalized = [u.lstrip("@").lower() for u in user_keys]
+            active_users = [u for u in active_users if u["username"].lower() in normalized]
+        for user in active_users:
+            user_id = user["user_id"]
+            username = user["username"]
+            try:
+                await bot.send_message(chat_id=user_id, text=message)
+                logger.info(f"Особисте повідомлення надіслано | @{username} (id={user_id}) | текст: '{message}'")
+            except Exception as e:
+                if "Forbidden" in str(e):
+                    logger.warning(f"@{username} (id={user_id}) заблокував бота -> оновлюємо статус")
+                    update_user_status(user_id, USER_STATUS_BLOCKED)
+                else:
+                    logger.error(f"Помилка надсилання | @{username} (id={user_id}) | {e}")
+
+
 def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
     # misfire_grace_time=600 — якщо задача пропущена менш ніж 10 хв тому
     # (наприклад під час перезапуску між сесіями GitHub Actions) — відправити одразу.
@@ -24,48 +61,12 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         text = ann["text"]
         chat_ids = get_chat_ids(ann["chats"])
         trigger = CronTrigger.from_crontab(ann["cron"], timezone=KYIV_TZ)
-
         user_keys = ann.get("users", [])
 
-        async def send_announcement(t=text, ids=chat_ids, keys=ann["chats"], ukeys=user_keys):
-            # Якщо text — функція (lambda), викликаємо її в момент надсилання
-            message = t() if callable(t) else t
+        async def job(t=text, ids=chat_ids, keys=ann["chats"], ukeys=user_keys):
+            await send_announcement(bot, t, ids, keys, ukeys)
 
-            # --- Надсилання в групові чати ---
-            for chat_id, chat_key in zip(ids, keys if keys != ["all"] else list(CHATS.keys())):
-                try:
-                    await bot.send_message(chat_id=chat_id, text=message)
-                    logger.info(
-                        f"Оголошення надіслано | чат: '{chat_key}' (id={chat_id}) | текст: '{message}'"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"Помилка надсилання | чат: '{chat_key}' (id={chat_id}) | {e}"
-                    )
-
-            # --- Надсилання особистих повідомлень ---
-            if ukeys:
-                active_users = get_active_users()
-                # ["all"] — всі активні; інакше — фільтр по username (з @ або без)
-                if ukeys != ["all"]:
-                    normalized = [u.lstrip("@").lower() for u in ukeys]
-                    active_users = [u for u in active_users if u["username"].lower() in normalized]
-                for user in active_users:
-                    user_id = user["user_id"]
-                    username = user["username"]
-                    try:
-                        await bot.send_message(chat_id=user_id, text=message)
-                        logger.info(
-                            f"Особисте повідомлення надіслано | @{username} (id={user_id}) | текст: '{message}'"
-                        )
-                    except Exception as e:
-                        if "Forbidden" in str(e):
-                            logger.warning(f"@{username} (id={user_id}) заблокував бота → оновлюємо статус")
-                            update_user_status(user_id, USER_STATUS_BLOCKED)
-                        else:
-                            logger.error(f"Помилка надсилання | @{username} (id={user_id}) | {e}")
-
-        scheduler.add_job(send_announcement, trigger=trigger)
-        logger.info(f"Заплановано: [{ann['cron']}] → чати: {ann['chats']}, користувачі: {user_keys}")
+        scheduler.add_job(job, trigger=trigger)
+        logger.info(f"Заплановано: [{ann['cron']}] -> чати: {ann['chats']}, користувачі: {user_keys}")
 
     return scheduler
