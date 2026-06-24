@@ -59,40 +59,48 @@ def get_google_client():
 
 
 # --- Статуси користувачів ---
-USER_STATUS_INACTIVE = "не активний"
-USER_STATUS_ACTIVE   = "активний"
-USER_STATUS_BLOCKED  = "заблокований"
+USER_STATUS_ACTIVE   = "активний"      # підтверджений адміном, отримує розсилку
+USER_STATUS_BLOCKED  = "заблокований"  # заблокував бота — адмін вирішує що далі
 
 
 def _get_users_worksheet():
-    """Повертає вкладку 'users' з основного Google Sheet."""
+    """Повертає вкладку 'users' — підтверджені користувачі."""
     client = get_google_client()
     return client.open_by_key(GOOGLE_SHEET_ID).worksheet("users")
 
 
+def _get_requests_worksheet():
+    """Повертає вкладку 'requests' — черга запитів від /start."""
+    client = get_google_client()
+    return client.open_by_key(GOOGLE_SHEET_ID).worksheet("requests")
+
+
 def upsert_user(user_id: int, username: str | None, first_name: str | None) -> None:
     """
-    Якщо користувач вже є в Sheet — оновлює статус на 'активний' і joined_at.
-    Якщо нема — НЕ додає (адмін додає вручну).
+    Записує користувача у вкладку 'requests' (черга).
+    Якщо вже є — оновлює username/first_name (дані могли змінитись).
+    Вкладку 'users' не чіпає — адмін керує нею вручну.
     """
     import datetime
+    today = datetime.date.today().isoformat()
     try:
-        ws = _get_users_worksheet()
+        ws = _get_requests_worksheet()
         records = ws.get_all_records()
-        for i, row in enumerate(records, start=2):  # рядок 1 — заголовок
+        for i, row in enumerate(records, start=2):
             if str(row.get("user_id")) == str(user_id):
-                ws.update(f"D{i}", [[USER_STATUS_ACTIVE]])
-                if not row.get("joined_at"):
-                    ws.update(f"E{i}", [[datetime.date.today().isoformat()]])
-                logger.info(f"Користувач {user_id} ({first_name}) → статус: {USER_STATUS_ACTIVE}")
+                # Оновлюємо username і first_name — могли змінитись
+                ws.update(f"B{i}:C{i}", [[username or "", first_name or ""]])
+                logger.info(f"@{username or user_id} (id={user_id}) повторно натиснув /start — оновлено дані")
                 return
-        logger.info(f"Користувач {user_id} не знайдений в Sheet — пропущено")
+        # Новий — додаємо в чергу
+        ws.append_row([user_id, username or "", first_name or "", today])
+        logger.info(f"Новий запит: @{username or user_id} (id={user_id}) → додано в requests")
     except Exception as e:
         logger.error(f"Помилка upsert_user({user_id}): {e}")
 
 
-def get_active_users() -> list[int]:
-    """Повертає список {'user_id': int, 'username': str} з статусом 'активний'."""
+def get_active_users() -> list[dict]:
+    """Повертає список {'user_id': int, 'username': str} зі статусом 'активний' з вкладки 'users'."""
     try:
         ws = _get_users_worksheet()
         records = ws.get_all_records()
@@ -116,7 +124,7 @@ def update_user_status(user_id: int, status: str) -> None:
         for i, row in enumerate(records, start=2):
             if str(row.get("user_id")) == str(user_id):
                 username = row.get("username") or str(user_id)
-                ws.update(f"D{i}", [[status]])
+                ws.update(f"C{i}", [[status]])
                 logger.info(f"@{username} (id={user_id}) → статус: {status}")
                 return
         logger.warning(f"update_user_status: користувач {user_id} не знайдений")
@@ -141,7 +149,7 @@ def load_chats_from_sheet() -> dict:
     """Читає чати з Google Sheet і повертає dict."""
     try:
         client = get_google_client()
-        sheet = client.open_by_key(GOOGLE_SHEET_ID).sheet1
+        sheet = client.open_by_key(GOOGLE_SHEET_ID).worksheet("groups")
         records = sheet.get_all_records()
 
         chats = {}
