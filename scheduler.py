@@ -46,6 +46,10 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
             # --- Надсилання особистих повідомлень ---
             if ukeys:
                 active_users = get_active_users()
+                # ["all"] — всі активні; інакше — фільтр по username (з @ або без)
+                if ukeys != ["all"]:
+                    normalized = [u.lstrip("@").lower() for u in ukeys]
+                    active_users = [u for u in active_users if u["username"].lower() in normalized]
                 for user in active_users:
                     user_id = user["user_id"]
                     username = user["username"]

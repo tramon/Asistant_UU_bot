@@ -124,7 +124,7 @@ def update_user_status(user_id: int, status: str) -> None:
         for i, row in enumerate(records, start=2):
             if str(row.get("user_id")) == str(user_id):
                 username = row.get("username") or str(user_id)
-                ws.update(f"C{i}", [[status]])
+                ws.update(f"D{i}", [[status]])
                 logger.info(f"@{username} (id={user_id}) → статус: {status}")
                 return
         logger.warning(f"update_user_status: користувач {user_id} не знайдений")
