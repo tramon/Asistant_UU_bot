@@ -3,7 +3,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from config import CHATS, GOOGLE_SHEET_ID, UU_SCHEDULE_SHEET_ID, get_schedule_url
+from config import CHATS, GOOGLE_SHEET_ID, UU_SCHEDULE_SHEET_ID, get_schedule_url, upsert_user
 from utils.decorators import allowed_chats_only, allowed_users_only, private_chat_only
 from utils.chat_resolver import get_chat_key_by_id
 from utils.utils import get_study_week
@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 @allowed_chats_only
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Якщо особистий чат — оновлюємо статус користувача в Sheet
+    if update.effective_chat.type == "private":
+        user = update.effective_user
+        upsert_user(user.id, user.username, user.first_name)
     await update.message.reply_text("Бот активний ✅")
 
 

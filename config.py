@@ -58,6 +58,72 @@ def get_google_client():
     return gspread.authorize(creds)
 
 
+# --- Статуси користувачів ---
+USER_STATUS_INACTIVE = "не активний"
+USER_STATUS_ACTIVE   = "активний"
+USER_STATUS_BLOCKED  = "заблокований"
+
+
+def _get_users_worksheet():
+    """Повертає вкладку 'users' з основного Google Sheet."""
+    client = get_google_client()
+    return client.open_by_key(GOOGLE_SHEET_ID).worksheet("users")
+
+
+def upsert_user(user_id: int, username: str | None, first_name: str | None) -> None:
+    """
+    Якщо користувач вже є в Sheet — оновлює статус на 'активний' і joined_at.
+    Якщо нема — НЕ додає (адмін додає вручну).
+    """
+    import datetime
+    try:
+        ws = _get_users_worksheet()
+        records = ws.get_all_records()
+        for i, row in enumerate(records, start=2):  # рядок 1 — заголовок
+            if str(row.get("user_id")) == str(user_id):
+                ws.update(f"D{i}", [[USER_STATUS_ACTIVE]])
+                if not row.get("joined_at"):
+                    ws.update(f"E{i}", [[datetime.date.today().isoformat()]])
+                logger.info(f"Користувач {user_id} ({first_name}) → статус: {USER_STATUS_ACTIVE}")
+                return
+        logger.info(f"Користувач {user_id} не знайдений в Sheet — пропущено")
+    except Exception as e:
+        logger.error(f"Помилка upsert_user({user_id}): {e}")
+
+
+def get_active_users() -> list[int]:
+    """Повертає список {'user_id': int, 'username': str} з статусом 'активний'."""
+    try:
+        ws = _get_users_worksheet()
+        records = ws.get_all_records()
+        active = [
+            {"user_id": int(row["user_id"]), "username": row.get("username") or str(row["user_id"])}
+            for row in records
+            if row.get("status") == USER_STATUS_ACTIVE
+        ]
+        logger.info(f"Активних користувачів: {len(active)}")
+        return active
+    except Exception as e:
+        logger.error(f"Помилка get_active_users: {e}")
+        return []
+
+
+def update_user_status(user_id: int, status: str) -> None:
+    """Оновлює статус користувача в Sheet."""
+    try:
+        ws = _get_users_worksheet()
+        records = ws.get_all_records()
+        for i, row in enumerate(records, start=2):
+            if str(row.get("user_id")) == str(user_id):
+                username = row.get("username") or str(user_id)
+                ws.update(f"D{i}", [[status]])
+                logger.info(f"@{username} (id={user_id}) → статус: {status}")
+                return
+        logger.warning(f"update_user_status: користувач {user_id} не знайдений")
+    except Exception as e:
+        logger.error(f"Помилка update_user_status({user_id}): {e}")
+
+
 def get_schedule_url(chat_key: str) -> str | None:
     """Повертає посилання на аркуш розкладу для групи за її ключем."""
     try:
