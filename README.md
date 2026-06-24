@@ -18,12 +18,13 @@ handlers/
   callbacks.py          # Обробники inline-кнопок
 
 utils/
-  helpers.py            # get_chat_key_by_id, get_chat_ids
-  decorators.py         # allowed_chats_only — фільтр чатів
-  utils.py              # get_study_week — логіка підрахунку тижня
+  chat_resolver.py      # get_chat_key_by_id, get_chat_ids
+  decorators.py         # allowed_chats_only, allowed_users_only, private_chat_only
+  utils.py              # get_study_week, get_day_of_week
 
 tests/
   test_utils.py         # Тести для utils
+  test_announcements.py # Тести логіки надсилання оголошень
 ```
 
 ---
@@ -38,6 +39,7 @@ tests/
 | `/info` | Інформація про групу + inline-кнопки |
 | `/week` | Який зараз тиждень навчання |
 | `/schedule` | Посилання на розклад групи |
+| `/doc` | Посилання на Google Sheets (лише в особистому чаті, тільки для власників) |
 
 ---
 
@@ -52,6 +54,7 @@ tests/
 | `GOOGLE_SHEET_ID` | ID Google Sheet з конфігом чатів |
 | `GOOGLE_CREDENTIALS_JSON` | JSON сервісного акаунту Google (для GitHub Actions) |
 | `UU_SCHEDULE_SHEET_ID` | ID Google Sheet з розкладами груп |
+| `OWNER_USER_TELEGRAM_IDS` | Comma-separated список Telegram user_id з доступом до `/doc` |
 
 Локально замість `GOOGLE_CREDENTIALS_JSON` — файл `google_credentials.json` у корені проекту.
 
@@ -61,12 +64,28 @@ tests/
 
 ### Конфіг чатів (`GOOGLE_SHEET_ID`)
 
-Sheet1 повинен містити колонки:
+Чотири вкладки:
+
+**`groups`** — налаштування груп:
 
 | key | name | telegram_id | info | welcome |
 |---|---|---|---|---|
 | main | Назва групи | -100123456789 | Текст для /info | Текст привітання |
 | dev | Dev група | -100987654321 | ... | ... |
+
+**`users`** — користувачі, які отримують особисті розсилки (керується вручну адміном):
+
+| user_id | username | first_name | status |
+|---|---|---|---|
+| 123456789 | alice | Alice | активний |
+
+Статуси: `активний` (отримує розсилку), `заблокований` (заблокував бота).
+
+**`requests`** — черга: всі хто натиснув `/start` (записується автоматично):
+
+| user_id | username | first_name | joined_at |
+|---|---|---|---|
+| 123456789 | alice | Alice | 2026-06-24 |
 
 ### Розклади (`UU_SCHEDULE_SHEET_ID`)
 
@@ -83,8 +102,11 @@ Sheet1 повинен містити колонки:
     "text": "Текст оголошення",   # або lambda: f"Динамічний {текст}"
     "cron": "0 9 * * 1-5",       # cron-вираз (Europe/Kyiv)
     "chats": ["main"],            # ключі груп або ["all"]
+    "users": ["all"],             # необов'язково: ["all"] або ["username1", "@username2"]
 }
 ```
+
+Поле `users` — особисті повідомлення. Надсилається лише користувачам зі статусом `активний` у вкладці `users`.
 
 **Cron-шпаргалка** (APScheduler: 0=пн, 6=нд):
 ```
@@ -122,5 +144,7 @@ python run.py        # запускає тести, потім бота
 ## Тести
 
 ```bash
-pytest
+pytest tests/ -v
 ```
+
+Тести використовують mock — реальних запитів до Telegram або Google Sheets немає. Запускаються автоматично в GitHub Actions перед стартом бота.
