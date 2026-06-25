@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from config import BOT_TOKEN
 from handlers.callbacks import week_callback, schedule_callback
-from handlers.commands import start, help_command, chatid, info, week, schedule, doc, unknown
+from handlers.commands import start, help_command, chatid, info, week, schedule, doc, reload_scheduler, unknown
 from scheduler import setup_scheduler
 
 class _FilterGetUpdates(logging.Filter):
@@ -40,12 +40,14 @@ async def main():
     app.add_handler(CommandHandler("week", week))
     app.add_handler(CommandHandler("schedule", schedule))
     app.add_handler(CommandHandler("doc", doc))
+    app.add_handler(CommandHandler("reload", reload_scheduler))
     app.add_handler(CallbackQueryHandler(week_callback, pattern="^week$"))
     app.add_handler(CallbackQueryHandler(schedule_callback, pattern="^schedule$"))
     app.add_handler(MessageHandler(filters.COMMAND, unknown))
 
     scheduler = setup_scheduler(app.bot)
     scheduler.start()
+    app.bot_data["scheduler"] = scheduler
     logger.info("Планувальник запущено")
 
     logger.info("Бот запущено. Polling...")

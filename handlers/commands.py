@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from config import ALLOWED_CHAT_IDS, CHATS, GOOGLE_SHEET_ID, UU_SCHEDULE_SHEET_ID, get_schedule_url, upsert_user
+from scheduler import setup_scheduler
 from utils.decorators import allowed_chats_only, allowed_users_only, private_chat_only
 from utils.chat_resolver import get_chat_key_by_id
 from utils.utils import get_study_week
@@ -97,6 +98,23 @@ async def doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Розклад:\n{schedule_url}"
     )
     await update.message.reply_text(text, disable_web_page_preview=True)
+
+
+@private_chat_only
+@allowed_users_only
+async def reload_scheduler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Перезапускає планувальник оголошень без перезапуску бота."""
+    old_scheduler = context.bot_data.get("scheduler")
+    if old_scheduler and old_scheduler.running:
+        old_scheduler.shutdown(wait=False)
+        logger.info("Старий планувальник зупинено")
+
+    new_scheduler = setup_scheduler(context.bot)
+    new_scheduler.start()
+    context.bot_data["scheduler"] = new_scheduler
+    logger.info("Планувальник перезапущено через /reload")
+
+    await update.message.reply_text("✅ Планувальник перезапущено")
 
 
 @allowed_chats_only
