@@ -40,7 +40,7 @@ async def main():
     app.add_handler(CommandHandler("week", week))
     app.add_handler(CommandHandler("schedule", schedule))
     app.add_handler(CommandHandler("doc", doc))
-    app.add_handler(CommandHandler("reload", reload_scheduler))
+    app.add_handler(CommandHandler(["reload", "reset", "restart"], reload_scheduler))
     app.add_handler(CallbackQueryHandler(week_callback, pattern="^week$"))
     app.add_handler(CallbackQueryHandler(schedule_callback, pattern="^schedule$"))
     app.add_handler(MessageHandler(filters.COMMAND, unknown))

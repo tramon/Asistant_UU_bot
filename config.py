@@ -63,6 +63,65 @@ USER_STATUS_ACTIVE   = "активний"      # підтверджений ад
 USER_STATUS_BLOCKED  = "заблокований"  # заблокував бота — адмін вирішує що далі
 
 
+def load_announcements_from_sheet() -> list[dict] | None:
+    """
+    Читає оголошення з вкладки 'announcements' Google Sheet.
+    Повертає список dict у форматі сумісному з announcements.py, або None при помилці.
+
+    Структура вкладки: id | text | cron | chats | users | active
+    - chats: comma-separated ключі груп або 'all' або порожньо
+    - users: comma-separated username або 'all' або порожньо
+    - active: TRUE/FALSE — пропускає неактивні рядки
+    - text: підтримує плейсхолдери {day} і {week}
+    """
+    from utils.utils import get_day_of_week, get_study_week
+
+    try:
+        client = get_google_client()
+        ws = client.open_by_key(GOOGLE_SHEET_ID).worksheet("announcements")
+        records = ws.get_all_records()
+
+        announcements = []
+        for row in records:
+            if str(row.get("active", "")).strip().upper() != "TRUE":
+                continue
+
+            raw_text = str(row.get("text", "")).strip()
+            cron = str(row.get("cron", "")).strip()
+
+            if not raw_text or not cron:
+                logger.warning(f"Пропущено рядок без тексту або cron: {row}")
+                continue
+
+            # Плейсхолдери {day} і {week} → lambda щоб обраховувались в момент надсилання
+            if "{day}" in raw_text or "{week}" in raw_text:
+                template = raw_text
+                text = lambda t=template: t.format(day=get_day_of_week(), week=get_study_week())
+            else:
+                text = raw_text
+
+            # chats: "main,dev" → ["main", "dev"], "" → []
+            raw_chats = str(row.get("chats", "")).strip()
+            chats = [c.strip() for c in raw_chats.split(",") if c.strip()] if raw_chats else []
+
+            # users: "all" → ["all"], "alice,bob" → ["alice", "bob"], "" → []
+            raw_users = str(row.get("users", "")).strip()
+            users = [u.strip() for u in raw_users.split(",") if u.strip()] if raw_users else []
+
+            ann = {"text": text, "cron": cron, "chats": chats}
+            if users:
+                ann["users"] = users
+
+            announcements.append(ann)
+
+        logger.info(f"Завантажено {len(announcements)} оголошень з Google Sheet")
+        return announcements
+
+    except Exception as e:
+        logger.error(f"Помилка завантаження оголошень з Sheet: {e}")
+        return None
+
+
 def _get_users_worksheet():
     """Повертає вкладку 'users' — підтверджені користувачі."""
     client = get_google_client()

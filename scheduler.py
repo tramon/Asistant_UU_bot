@@ -6,7 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 from telegram import Bot
 
 from announcements import ANNOUNCEMENTS
-from config import CHATS, USER_STATUS_BLOCKED, get_active_users, update_user_status
+from config import CHATS, USER_STATUS_BLOCKED, get_active_users, load_announcements_from_sheet, update_user_status
 from utils.chat_resolver import get_chat_ids
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,16 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
     # Якщо більше 10 хв — пропустити, щоб не надсилати застарілі повідомлення.
     scheduler = AsyncIOScheduler(timezone=KYIV_TZ, misfire_grace_time=600)
 
-    for ann in ANNOUNCEMENTS:
+    # Спочатку пробуємо завантажити з Google Sheet, fallback на announcements.py
+    sheet_announcements = load_announcements_from_sheet()
+    if sheet_announcements is not None:
+        announcements = sheet_announcements
+        logger.info("Оголошення завантажено з Google Sheet")
+    else:
+        announcements = ANNOUNCEMENTS
+        logger.warning("Не вдалось завантажити з Sheet — використовуємо announcements.py")
+
+    for ann in announcements:
         text = ann["text"]
         chat_ids = get_chat_ids(ann["chats"])
         trigger = CronTrigger.from_crontab(ann["cron"], timezone=KYIV_TZ)
