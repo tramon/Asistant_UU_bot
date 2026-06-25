@@ -6,7 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 from telegram import Bot
 
 from announcements import ANNOUNCEMENTS
-from config import CHATS, USER_STATUS_BLOCKED, get_active_users, load_announcements_from_sheet, update_user_status
+from config import CHATS, OWNER_USER_TELEGRAM_IDS, USER_STATUS_BLOCKED, get_active_users, load_announcements_from_sheet, update_user_status
 from utils.chat_resolver import get_chat_ids
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,16 @@ async def send_announcement(bot: Bot, text, chat_ids: list, chat_keys: list, use
 
     # --- Надсилання особистих повідомлень ---
     if user_keys:
+        # ["__owners__"] — DRAFT режим: надсилати тільки власникам напряму по їх Telegram ID
+        if user_keys == ["__owners__"]:
+            for owner_id in OWNER_USER_TELEGRAM_IDS:
+                try:
+                    await bot.send_message(chat_id=owner_id, text=f"📝 [DRAFT]\n{message}")
+                    logger.info(f"DRAFT надіслано власнику (id={owner_id}) | текст: '{message}'")
+                except Exception as e:
+                    logger.error(f"Помилка надсилання DRAFT | власник (id={owner_id}) | {e}")
+            return
+
         active_users = get_active_users()
         # ["all"] — всі активні; інакше — фільтр по username (з @ або без)
         if user_keys != ["all"]:

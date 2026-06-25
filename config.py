@@ -71,7 +71,10 @@ def load_announcements_from_sheet() -> list[dict] | None:
     Структура вкладки: id | text | cron | chats | users | active
     - chats: comma-separated ключі груп або 'all' або порожньо
     - users: comma-separated username або 'all' або порожньо
-    - active: TRUE/FALSE — пропускає неактивні рядки
+    - active: TRUE/FALSE/DRAFT
+        - порожньо або TRUE  → активне (надсилається всім)
+        - FALSE              → вимкнено (пропускається)
+        - DRAFT              → тільки власникам в особисті (chats ігноруються)
     - text: підтримує плейсхолдери {day} і {week}
     """
     from utils.utils import get_day_of_week, get_study_week
@@ -83,7 +86,8 @@ def load_announcements_from_sheet() -> list[dict] | None:
 
         announcements = []
         for row in records:
-            if str(row.get("active", "")).strip().upper() != "TRUE":
+            active_val = str(row.get("active", "")).strip().upper()
+            if active_val not in ("", "TRUE", "DRAFT"):
                 continue
 
             raw_text = str(row.get("text", "")).strip()
@@ -99,6 +103,16 @@ def load_announcements_from_sheet() -> list[dict] | None:
                 text = lambda t=template: t.format(day=get_day_of_week(), week=get_study_week())
             else:
                 text = raw_text
+
+            # DRAFT → надсилається тільки власникам в особисті, групи ігноруються
+            if active_val == "DRAFT":
+                ann = {"text": text, "cron": cron, "chats": [], "users": ["__owners__"]}
+                ann_id = str(row.get("id", "")).strip()
+                if ann_id:
+                    ann["id"] = ann_id
+                logger.info(f"DRAFT оголошення (id={ann_id or '?'}): тільки для власників")
+                announcements.append(ann)
+                continue
 
             # chats: "main,dev" → ["main", "dev"], "" → []
             raw_chats = str(row.get("chats", "")).strip()
