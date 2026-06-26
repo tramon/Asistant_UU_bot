@@ -104,3 +104,80 @@ async def test_non_owner_cannot_get_doc_links():
         await doc(update, context)
 
     update.message.reply_text.assert_called_once_with("⛔ У вас немає доступу до цієї команди.")
+
+
+# --- Тести /broadcast ---
+
+async def test_broadcast_to_specific_chat():
+    """Власник може надіслати повідомлення в конкретний чат."""
+    from handlers.commands import broadcast
+
+    owner_id = 999
+    update = make_update(user_id=owner_id)
+    context = make_context()
+    context.args = ["main", "Привіт", "групі!"]
+
+    with patch("utils.decorators.OWNER_USER_TELEGRAM_IDS", [owner_id]), \
+         patch("handlers.commands.CHATS", {"main": {"telegram_id": -100111, "name": "Main"}}), \
+         patch("handlers.commands.send_announcement") as mock_send:
+        mock_send.return_value = None
+        await broadcast(update, context)
+
+    mock_send.assert_called_once()
+    update.message.reply_text.assert_called_once_with("✅ Надіслано → чат 'main'")
+
+
+async def test_broadcast_to_user():
+    """Власник може надіслати повідомлення конкретному користувачу."""
+    from handlers.commands import broadcast
+
+    owner_id = 999
+    update = make_update(user_id=owner_id)
+    context = make_context()
+    context.args = ["andriitramon", "Привіт!"]
+
+    with patch("utils.decorators.OWNER_USER_TELEGRAM_IDS", [owner_id]), \
+         patch("handlers.commands.CHATS", {}), \
+         patch("handlers.commands.send_announcement") as mock_send:
+        mock_send.return_value = None
+        await broadcast(update, context)
+
+    mock_send.assert_called_once()
+    _, _, chat_ids, chat_keys, user_keys = mock_send.call_args[0]
+    assert user_keys == ["andriitramon"]
+    assert chat_ids == []
+
+
+async def test_broadcast_missing_args_shows_help():
+    """Якщо аргументи не передані — показує підказку."""
+    from handlers.commands import broadcast
+
+    owner_id = 999
+    update = make_update(user_id=owner_id)
+    context = make_context()
+    context.args = []
+
+    with patch("utils.decorators.OWNER_USER_TELEGRAM_IDS", [owner_id]), \
+         patch("handlers.commands.CHATS", {}):
+        await broadcast(update, context)
+
+    sent = update.message.reply_text.call_args[0][0]
+    assert "Використання:" in sent
+
+
+async def test_non_owner_cannot_broadcast():
+    """Не-власник не може використовувати /broadcast."""
+    from handlers.commands import broadcast
+
+    owner_id = 999
+    stranger_id = 111
+    update = make_update(user_id=stranger_id)
+    context = make_context()
+    context.args = ["main", "Привіт!"]
+
+    with patch("utils.decorators.OWNER_USER_TELEGRAM_IDS", [owner_id]), \
+         patch("handlers.commands.send_announcement") as mock_send:
+        await broadcast(update, context)
+
+    mock_send.assert_not_called()
+    update.message.reply_text.assert_called_once_with("⛔ У вас немає доступу до цієї команди.")

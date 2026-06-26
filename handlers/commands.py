@@ -4,9 +4,9 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from config import ALLOWED_CHAT_IDS, CHATS, GOOGLE_SHEET_ID, UU_SCHEDULE_SHEET_ID, get_schedule_url, upsert_user
-from scheduler import setup_scheduler
+from scheduler import setup_scheduler, send_announcement
+from utils.chat_resolver import get_chat_key_by_id, get_chat_ids
 from utils.decorators import allowed_chats_only, allowed_users_only, private_chat_only
-from utils.chat_resolver import get_chat_key_by_id
 from utils.utils import get_study_week
 
 logger = logging.getLogger(__name__)
@@ -120,3 +120,61 @@ async def reload_scheduler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @allowed_chats_only
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Невідома команда. Спробуй /help")
+
+
+@private_chat_only
+@allowed_users_only
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Надсилає повідомлення в чат або користувачу від імені бота.
+
+    Використання: /broadcast <одержувач> <повідомлення>
+
+    Одержувачі:
+      all            — всі групові чати
+      users          — всім активним користувачам особисто
+      main / dev     — конкретний чат (ключ з CHATS)
+      <username>     — конкретному користувачу особисто
+    """
+
+    args = context.args  # ["main", "Привіт", "групі!"]
+
+    if not args or len(args) < 2:
+        await update.message.reply_text(
+            "Використання: /broadcast <одержувач> <повідомлення>\n\n"
+            "Приклади:\n"
+            "  /broadcast all Привіт усім групам!\n"
+            "  /broadcast users Привіт усім особисто!\n"
+            "  /broadcast main Привіт групі main!\n"
+            "  /broadcast andriitramon Привіт особисто!"
+        )
+        return
+
+    recipient = args[0]
+    text = " ".join(args[1:])
+
+    # Визначаємо chat_ids / chat_keys / user_keys за одержувачем
+    if recipient == "all":
+        chat_ids = get_chat_ids(["all"])
+        chat_keys = ["all"]
+        user_keys = []
+        target_label = "всі групи"
+    elif recipient == "users":
+        chat_ids = []
+        chat_keys = []
+        user_keys = ["all"]
+        target_label = "всі активні користувачі"
+    elif recipient in CHATS:
+        chat_ids = get_chat_ids([recipient])
+        chat_keys = [recipient]
+        user_keys = []
+        target_label = f"чат '{recipient}'"
+    else:
+        # Вважаємо username
+        chat_ids = []
+        chat_keys = []
+        user_keys = [recipient]
+        target_label = f"@{recipient.lstrip('@')}"
+
+    await send_announcement(context.bot, text, chat_ids, chat_keys, user_keys)
+    await update.message.reply_text(f"✅ Надіслано → {target_label}")
