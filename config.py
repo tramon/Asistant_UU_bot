@@ -219,7 +219,12 @@ def get_schedule_url(chat_key: str) -> str | None:
 
 
 def load_chats_from_sheet() -> dict:
-    """Читає чати з Google Sheet і повертає dict."""
+    """Читає чати з Google Sheet і повертає dict.
+
+    Колонка status (F):
+      - порожньо або TRUE → чат дозволений
+      - будь-яке інше (FALSE, DISABLED тощо) → чат вимкнений, ігнорується
+    """
     try:
         client = get_google_client()
         sheet = client.open_by_key(GOOGLE_SHEET_ID).worksheet("groups")
@@ -227,6 +232,10 @@ def load_chats_from_sheet() -> dict:
 
         chats = {}
         for row in records:
+            status = str(row.get("status", "")).strip().upper()
+            if status not in ("", "TRUE"):
+                logger.warning(f"Чат '{row.get('key')}' вимкнений (status={status!r}) — пропускається")
+                continue
             key = row["key"]
             chats[key] = {
                 "name":        row["name"],
