@@ -150,31 +150,31 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    recipient = args[0]
+    # Перший аргумент може містити кількох одержувачів через кому: @alice,@bob
+    recipients = [r.strip() for r in args[0].split(",") if r.strip()]
     text = " ".join(args[1:])
 
     # Визначаємо chat_ids / chat_keys / user_keys за одержувачем
-    if recipient == "all":
+    if recipients == ["all"]:
         chat_ids = get_chat_ids(["all"])
         chat_keys = ["all"]
         user_keys = []
         target_label = "всі групи"
-    elif recipient == "users":
+    elif recipients == ["users"]:
         chat_ids = []
         chat_keys = []
         user_keys = ["all"]
         target_label = "всі активні користувачі"
-    elif recipient in CHATS:
-        chat_ids = get_chat_ids([recipient])
-        chat_keys = [recipient]
+    elif all(r in CHATS for r in recipients):
+        chat_ids = get_chat_ids(recipients)
+        chat_keys = recipients
         user_keys = []
-        target_label = f"чат '{recipient}'"
+        target_label = ", ".join(f"чат '{r}'" for r in recipients)
     else:
-        # Вважаємо username
+        # Вважаємо usernames
         chat_ids = []
         chat_keys = []
-        user_keys = [recipient]
-        target_label = f"@{recipient.lstrip('@')}"
-
+        user_keys = recipients
+        target_label = ", ".join(f"@{r.lstrip('@')}" for r in recipients)
     await send_announcement(context.bot, text, chat_ids, chat_keys, user_keys)
     await update.message.reply_text(f"✅ Надіслано → {target_label}")
